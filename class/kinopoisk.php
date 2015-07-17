@@ -43,6 +43,7 @@ class KP extends system {
   private $film_budget;
   private $film_rating;
   private $film_duration;
+  private $film_description;
 
 
   protected function getMultipleField($field_name){
@@ -92,6 +93,7 @@ class KP extends system {
 
     //todo Добавить остальные поля
 
+    $this->film_description = $this->page->find('._reachbanner_ .brand_words')->text();
     $this->film_duration = $this->page->find('.info tr:contains(время) #runtime')->text();
     $this->film_rating['digital'] = $this->page->find('.rating_ball')->text();
     $this->film_rating['picture'] = "<img src=\"http://rating.kinopoisk.ru/{$this->page_id[2]}.gif\">";
@@ -326,6 +328,13 @@ class KP extends system {
    */
   public function getFilmDuration() {
     return $this->film_duration;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmDescription() {
+    return $this->film_description;
   }
 
   public function test(){
