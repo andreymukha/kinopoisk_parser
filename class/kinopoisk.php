@@ -6,78 +6,104 @@
  * Time: 8:43
  */
 
+//Подключаем необходимые файлы: библиотеку phpQuery и класс с системными методами
 $dir = dirname(__FILE__).'/../';
 require_once $dir.'class/system.class.php';
 require_once $dir.'lib/phpQuery/phpQuery.php';
 
-class KP {
-  private $artist_page;
+class KP extends system {
+  private $page;
+  private $page_id;
+  private $search_name;
 
   private $img;
-  private $search_name;
-  private $rus_name;
-  private $eng_name;
-  private $career;
-  private $height;
-  private $birthday;
-  private $place_of_birth;
-  private $genres;
-  private $family;
-  private $film_list;
+
+  private $artist_rus_name;
+  private $artist_eng_name;
+  private $artist_career;
+  private $artist_height;
+  private $artist_birthday;
+  private $artist_place_of_birth;
+  private $artist_genres;
+  private $artist_family;
+  private $artist_film_list;
+
+  private $film_title_rus;
+  private $film_title_eng;
+  private $film_year;
+  private $film_country;
+  private $film_tagline;
+  private $film_director;
+  private $film_screenplay;
+  private $film_producer;
+  private $film_composer;
+  private $film_painter;
+  private $film_mounting;
+  private $film_genre;
+  private $film_budget;
+  private $film_rating;
+  private $film_duration;
 
 
-
-  private function getContent($link){
-    $result = system::getUrlContent(
-      array(
-        'url' => $link,
-        'type' => 'GET',
-        'returntransfer' => 1,
-        'sendHeader' => array(
-          'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language' => 'ru,en-us;q=0.7,en;q=0.3',
-          'Accept-Charset' => 'windows-1251,utf-8;q=0.7,*;q=0.7',
-          'Keep-Alive' => '300',
-          'Connection' => 'keep-alive',
-          'Referer' => 'http://www.kinopoisk.ru/',
-        ),
-        'convert' => array('Windows-1251', 'utf-8'),
-      )
-    );
-    return $result;
+  protected function getMultipleField($field_name){
+    $fields = $this->page->find(".info tr:contains($field_name) a");
+    $field = array();
+    foreach($fields as $part){
+      $field[] = pq($part)->text();
+    }
+    return $field;
   }
 
-  private function getArtistPage($name){
-    $search_page = self::getContent('http://www.kinopoisk.ru/index.php?first=no&what=&kp_query='.urlencode($name));
-    $artist_page_url = substr('http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href'), 0, -5);
-    $artist_page = self::getContent($artist_page_url);
+  private function getPage($name) {
+    $search_page = self::getContent('http://www.kinopoisk.ru/index.php?first=no&what=&kp_query=' . urlencode($name));
+    $artist_page_url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href');
+    preg_match('!(name|film)/([0-9]+)!', $artist_page_url, $this->page_id);
+    $artist_page = self::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
     return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
   }
 
-   public function __construct($name){
+  public function __construct($name) {
     $this->search_name = $name;
-    $this->artist_page = phpQuery::newDocument(self::getArtistPage($this->search_name), "text/html; charset=windows-1251");
-    $this->GetArtistInit();
+    $this->page = phpQuery::newDocument(self::getPage($this->search_name), "text/html; charset=windows-1251");
+    $this->img = base64_encode(file_get_contents($this->page->find('.film-img-box a img')->attr('src')));
+    if ($this->page_id[1] == 'name') {
+      $this->GetArtistInit();
+    }elseif($this->page_id[1] == 'film'){
+      $this->GetFilmInit();
+    }else{
+      echo "Ничего не найдено";
+    }
   }
 
-  public function GetArtistInit(){
-    $this->img = base64_encode(file_get_contents($this->artist_page->find('.film-img-box a img')->attr('src')));
+  private function GetFilmInit(){
+    $this->film_title_rus = $this->page->find('#headerFilm h1.moviename-big')->text();
+    $this->film_title_eng = $this->page->find('#headerFilm span')->text();
+    $this->film_year = $this->page->find('.info tr:contains(год) a')->text();
+    $this->film_country = $this->getMultipleField('страна');
+    $this->film_tagline = $this->page->find('.info tr:contains(слоган) a')->text();
+    $this->film_director = $this->getMultipleField('режиссер');
+    $this->film_screenplay = $this->getMultipleField('сценарий');
+    $this->film_producer = $this->getMultipleField('продюсер');
+    $this->film_composer = $this->getMultipleField('композитор');
+    $this->film_painter = $this->getMultipleField('художник');
+    $this->film_mounting = $this->getMultipleField('монтаж');
+    $this->film_genre = $this->getMultipleField('жанр');
+    $this->film_budget = $this->page->find('.info tr:contains(бюджет) a')->text();
 
-    $this->rus_name = $this->artist_page->find('div#headerPeople h1')->text();
+    //todo Добавить остальные поля
 
-    $this->eng_name = trim($this->artist_page->find('div#headerPeople span')->text());
+    $this->film_duration = $this->page->find('.info tr:contains(время) #runtime')->text();
+    $this->film_rating['digital'] = $this->page->find('.rating_ball')->text();
+    $this->film_rating['picture'] = "<img src=\"http://rating.kinopoisk.ru/{$this->page_id[2]}.gif\">";
+  }
 
-    $careers = $this->artist_page->find('.info tr:contains(карьера) a');
-    $career = array();
-    foreach($careers as $part){
-      $career[] = pq($part)->text();
-    }
-    $this->career = $career;
-
-    $this->height = $this->artist_page->find('.info tr:contains(рост) span')->text();
-
+  private function GetArtistInit(){
+    $this->artist_rus_name = $this->page->find('div#headerPeople h1')->text();
+    $this->artist_eng_name = trim($this->page->find('div#headerPeople span')->text());
+    $this->artist_career = $this->getMultipleField('карьера');
+    $this->artist_height = $this->page->find('.info tr:contains(рост) span')->text();
     //todo разбить на отдельные поля
-    $birthday = $this->artist_page->find('.info tr:contains(дата рождения)');
+    $birthday = $this->page->find('.info tr:contains(дата рождения)');
 
     $timestamp = array();
     foreach(pq($birthday)->find('a') as $cnt=>$date) {
@@ -91,28 +117,16 @@ class KP {
         $zodiac = pq($other)->text();
       }
     }
-    $year = $this->artist_page->find('.info tr:contains(дата рождения) td:not([class="type"])')->text();
+    $year = $this->page->find('.info tr:contains(дата рождения) td:not([class="type"])')->text();
     preg_match('![0-9]+ (года|лет)!', $year, $year);
-    $this->birthday = $timestamp[0].' '.$timestamp[1].' ('.$year[0].') - '.$zodiac;
+    $this->artist_birthday = $timestamp[0].' '.$timestamp[1].' ('.$year[0].') - '.$zodiac;
 
-    $places_of_birth = $this->artist_page->find('.info tr:contains(место рождения) a');
-    $place_of_birth = array();
-    foreach($places_of_birth as $part){
-      $place_of_birth[] = pq($part)->text();
-    }
-    $this->place_of_birth = $place_of_birth;
-
-    $genres = $this->artist_page->find('.info tr:contains(жанры) a');
-    $genre = array();
-    foreach($genres as $part){
-      $genre[] = pq($part)->text();
-    }
-    $this->genres = $genre;
-
+    $this->artist_place_of_birth = $this->getMultipleField('место рождения');
+    $this->artist_genres = $this->getMultipleField('жанры');
     //todo поместить в многомерный массив
-    $this->family = $this->artist_page->find('.info tr:contains(супруг) td:last-child')->text();
+    $this->artist_family = $this->page->find('.info tr:contains(супруг) td:last-child')->text();
 
-    $films = $this->artist_page->find('.specializationBox');
+    $films = $this->page->find('.specializationBox');
     $film_list = array();
     foreach($films as $film){
       $headersAmplua = pq($film)->find('.headersAmplua span.txtWorks')->text();
@@ -124,7 +138,7 @@ class KP {
         );
       }
     }
-    $this->film_list = $film_list;
+    $this->artist_film_list = $film_list;
   }
 
   /**
@@ -137,57 +151,57 @@ class KP {
   /**
    * @return mixed
    */
-  public function getRusName() {
-    return $this->rus_name;
+  public function getArtistRusName() {
+    return $this->artist_rus_name;
   }
 
   /**
    * @return mixed
    */
-  public function getEngName() {
-    return $this->eng_name;
+  public function getArtistEngName() {
+    return $this->artist_eng_name;
   }
 
   /**
    * @return mixed
    */
-  public function getCareer() {
-    return $this->career;
+  public function getArtistCareer() {
+    return $this->artist_career;
   }
 
   /**
    * @return mixed
    */
-  public function getHeight() {
-    return $this->height;
+  public function getArtistHeight() {
+    return $this->artist_height;
   }
 
   /**
    * @return mixed
    */
-  public function getBirthday() {
-    return $this->birthday;
+  public function getArtistBirthday() {
+    return $this->artist_birthday;
   }
 
   /**
    * @return mixed
    */
-  public function getPlaceOfBirth() {
-    return $this->place_of_birth;
+  public function getArtistPlaceOfBirth() {
+    return $this->artist_place_of_birth;
   }
 
   /**
    * @return mixed
    */
-  public function getGenres() {
-    return $this->genres;
+  public function getArtistGenres() {
+    return $this->artist_genres;
   }
 
   /**
    * @return mixed
    */
-  public function getFamily() {
-    return $this->family;
+  public function getArtistFamily() {
+    return $this->artist_family;
   }
 
   /**
@@ -205,11 +219,116 @@ class KP {
   /**
    * @return mixed
    */
-  public function getFilmList() {
-    return $this->film_list;
+  public function getArtistFilmList() {
+    return $this->artist_film_list;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmTitleRus() {
+    return $this->film_title_rus;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmTitleEng() {
+    return $this->film_title_eng;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmYear() {
+    return $this->film_year;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmCountry() {
+    return $this->film_country;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmTagline() {
+    return $this->film_tagline;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmDirector() {
+    return $this->film_director;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmScreenplay() {
+    return $this->film_screenplay;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmProducer() {
+    return $this->film_producer;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmComposer() {
+    return $this->film_composer;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmPainter() {
+    return $this->film_painter;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmMounting() {
+    return $this->film_mounting;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmGenre() {
+    return $this->film_genre;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmBudget() {
+    return $this->film_budget;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmRating() {
+    return $this->film_rating;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmDuration() {
+    return $this->film_duration;
   }
 
   public function test(){
-    echo self::getArtistPage($this->search_name);
+    echo self::getPage($this->search_name);
   }
 }

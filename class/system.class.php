@@ -5,7 +5,7 @@
  * Date: 22.05.2015
  * Time: 8:40
  */
-class system {
+abstract class system {
   const FILENAME = 'INFORMATION.txt';
 
   protected function myMbUcfirst($str) {
@@ -13,8 +13,28 @@ class system {
     return $fc.mb_substr($str, 1);
   }
 
+  protected function getContent($link){
+    $result = system::getUrlContent(
+      array(
+        'url' => $link,
+        'type' => 'GET',
+        'returntransfer' => 1,
+        'sendHeader' => array(
+          'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language' => 'ru,en-us;q=0.7,en;q=0.3',
+          'Accept-Charset' => 'windows-1251,utf-8;q=0.7,*;q=0.7',
+          'Keep-Alive' => '300',
+          'Connection' => 'keep-alive',
+          'Referer' => 'http://www.kinopoisk.ru/',
+        ),
+        'convert' => array('Windows-1251', 'utf-8'),
+      )
+    );
+    return $result;
+  }
+
   //обёртка для CURL, для более удобного использования
-  public static function getUrlContent($param = NULL) {
+  protected static function getUrlContent($param = NULL) {
     if (is_array($param)) {
       $ch = curl_init();
       if ($param['type'] == 'POST') {
