@@ -18,6 +18,7 @@ class KP extends system {
 
   private $img;
 
+  private $artist_id;
   private $artist_rus_name;
   private $artist_eng_name;
   private $artist_career;
@@ -79,7 +80,7 @@ class KP extends system {
   private function GetFilmInit(){
     $this->film_title_rus = $this->page->find('#headerFilm h1.moviename-big')->text();
     $this->film_title_eng = $this->page->find('#headerFilm span')->text();
-    $this->film_year = $this->page->find('.info tr:contains(год) a')->text();
+    $this->film_year = str_replace(array("\n","\r"), '', $this->page->find('.info tr:contains(год) a')->text());
     $this->film_country = $this->getMultipleField('страна');
     $this->film_tagline = $this->page->find('.info tr:contains(слоган) a')->text();
     $this->film_director = $this->getMultipleField('режиссер');
@@ -100,6 +101,7 @@ class KP extends system {
   }
 
   private function GetArtistInit(){
+    $this->artist_id = $this->page_id[2];
     $this->artist_rus_name = $this->page->find('div#headerPeople h1')->text();
     $this->artist_eng_name = trim($this->page->find('div#headerPeople span')->text());
     $this->artist_career = $this->getMultipleField('карьера');
