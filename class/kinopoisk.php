@@ -67,7 +67,7 @@ class KP extends system {
   public function __construct($name) {
     $this->search_name = $name;
     $this->page = phpQuery::newDocument(self::getPage($this->search_name), "text/html; charset=windows-1251");
-    $this->img = base64_encode(file_get_contents($this->page->find('.film-img-box a img')->attr('src')));
+    $this->img = $this->page->find('.film-img-box a img')->attr('src') ? base64_encode(file_get_contents($this->page->find('.film-img-box a img')->attr('src'))) : base64_encode(file_get_contents("http://st.kp.yandex.net/images/persons/photo_none.png"));
     if ($this->page_id[1] == 'name') {
       $this->GetArtistInit();
     }elseif($this->page_id[1] == 'film'){

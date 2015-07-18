@@ -7,11 +7,12 @@ require_once 'class/kinopoisk.php';
 //$kris = new KP('Анна Кендрик');
 //$kris = new KP('Чарли Шин');
 //$kris = new KP('Шрек 2');
-//$kris = new KP('Натали Портман');
-$kris = new KP('сверхъестественное ');
+//$kris = new KP('Бионсе');
+$kris = new KP('Натали Портман');
+//$kris = new KP('4400');
 
 
 
 echo '<pre>';
-print_r($kris->getFilmTitleEng());
+print_r($kris->getImg());
 echo '</pre>';
