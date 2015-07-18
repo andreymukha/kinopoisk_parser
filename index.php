@@ -13,5 +13,5 @@ $kris = new KP('сверхъестественное ');
 
 
 echo '<pre>';
-print_r($kris->getFilmYear());
+print_r($kris->getFilmTitleEng());
 echo '</pre>';

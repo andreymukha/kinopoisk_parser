@@ -79,7 +79,7 @@ class KP extends system {
 
   private function GetFilmInit(){
     $this->film_title_rus = $this->page->find('#headerFilm h1.moviename-big')->text();
-    $this->film_title_eng = $this->page->find('#headerFilm span')->text();
+    $this->film_title_eng = $this->page->find('#headerFilm > span')->text();
     $this->film_year = str_replace(array("\n","\r"), '', $this->page->find('.info tr:contains(год) a')->text());
     $this->film_country = $this->getMultipleField('страна');
     $this->film_tagline = $this->page->find('.info tr:contains(слоган) a')->text();
