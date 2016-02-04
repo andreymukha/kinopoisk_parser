@@ -15,6 +15,7 @@ class KP extends system {
   private $page;
   private $page_id;
   private $search_name;
+  private $url;
 
   private $img;
 
@@ -58,8 +59,8 @@ class KP extends system {
 
   private function getPage($name) {
     $search_page = self::getContent('http://www.kinopoisk.ru/index.php?first=no&what=&kp_query=' . urlencode($name));
-    $artist_page_url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href');
-    preg_match('!(name|film)/([0-9]+)!', $artist_page_url, $this->page_id);
+    $this->url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href');
+    preg_match('!(name|film)/([0-9]+)!', $this->url, $this->page_id);
     $artist_page = self::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
     return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
   }
@@ -143,6 +144,13 @@ class KP extends system {
       }
     }
     $this->artist_film_list = $film_list;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getUrl() {
+    return $this->url;
   }
 
   /**
