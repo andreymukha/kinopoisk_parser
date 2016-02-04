@@ -102,14 +102,23 @@ class KP extends system {
   }
 
   private function GetArtistInit(){
+    //ID сущности (артист/фильм)
     $this->artist_id = $this->page_id[2];
-    $this->artist_rus_name = $this->page->find('div#headerPeople h1')->text();
-    $this->artist_eng_name = trim($this->page->find('div#headerPeople span')->text());
-    $this->artist_career = $this->getMultipleField('карьера');
-    $this->artist_height = $this->page->find('.info tr:contains(рост) span')->text();
-    //todo разбить на отдельные поля
-    $birthday = $this->page->find('.info tr:contains(дата рождения)');
 
+    //Имя артиста на русском
+    $this->artist_rus_name = $this->page->find('div#headerPeople h1')->text();
+
+    //Имя артиста на английском
+    $this->artist_eng_name = trim($this->page->find('div#headerPeople span')->text());
+
+    //Карьера артиста
+    $this->artist_career = $this->getMultipleField('карьера');
+
+    //Рост артиста
+    $this->artist_height = $this->page->find('.info tr:contains(рост) span')->text();
+
+    //Дата рождения артиста
+    $birthday = $this->page->find('.info tr:contains(дата рождения)');
     $timestamp = array();
     foreach(pq($birthday)->find('a') as $cnt=>$date) {
       if($cnt == 1 or $cnt == 0){
@@ -124,8 +133,16 @@ class KP extends system {
     }
     $year = $this->page->find('.info tr:contains(дата рождения) td:not([class="type"])')->text();
     preg_match('![0-9]+ (года|лет)!', $year, $year);
-    $this->artist_birthday = $timestamp[0].' '.$timestamp[1].' ('.$year[0].') - '.$zodiac;
+    $day_birth = explode(' ', $timestamp[0]);
+    $this->artist_birthday = array(
+      'day_of_birth' => $day_birth[0],
+      'month_of_birth' => $day_birth[1],
+      'year_of_birth' => $timestamp[1],
+      'years' => $year[0],
+      'sign_of_the_zodiac' => $zodiac,
+    );
 
+    //Место рождения артиста
     $this->artist_place_of_birth = $this->getMultipleField('место рождения');
     $this->artist_genres = $this->getMultipleField('жанры');
     //todo поместить в многомерный массив

@@ -14,5 +14,13 @@ $kris = new KP('Натали Портман');
 
 
 echo '<pre>';
+print_r($kris->getUrl());
+echo '</pre>';
+
+echo '<pre>';
 print_r($kris->getImg());
+echo '</pre>';
+
+echo '<pre>';
+print_r($kris->getArtistBirthday());
 echo '</pre>';
