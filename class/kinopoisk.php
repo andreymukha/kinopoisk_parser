@@ -144,10 +144,24 @@ class KP extends system {
 
     //Место рождения артиста
     $this->artist_place_of_birth = $this->getMultipleField('место рождения');
-    $this->artist_genres = $this->getMultipleField('жанры');
-    //todo поместить в многомерный массив
-    $this->artist_family = $this->page->find('.info tr:contains(супруг) td:last-child')->text();
 
+    //Жанры в которых снимается
+    $this->artist_genres = $this->getMultipleField('жанры');
+
+    //Семейное положение
+    $fam_type = $this->page->find('.info tr:contains(супруг) td:first-child')->text();
+    $fams = $this->page->find('.info tr:contains(супруг) td:last-child a');
+    $family = array();
+    foreach($fams as $fam){
+      $family[] = array(
+        'name' => pq($fam)->text(),
+        'link' => 'http://www.kinopoisk.ru'.pq($fam)->attr('href')
+      );
+    }
+    array_unshift($family, $fam_type);
+    $this->artist_family = $family;
+
+    //Список фильмов
     $films = $this->page->find('.specializationBox');
     $film_list = array();
     foreach($films as $film){
