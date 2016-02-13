@@ -30,6 +30,7 @@ class KP extends system {
   private $artist_family;
   private $artist_film_list;
 
+  private $film_id;
   private $film_title_rus;
   private $film_title_eng;
   private $film_year;
@@ -43,9 +44,22 @@ class KP extends system {
   private $film_mounting;
   private $film_genre;
   private $film_budget;
+  private $film_dues_usa;
+  private $film_dues_world;
+  private $film_dues_russia;
+  private $film_dvd_usa;
+  private $film_audience;
+  private $film_premiere_world;
+  private $film_premiere_russian;
+  private $film_release_blueray;
+  private $film_release_dvd;
+  private $film_age;
+  private $film_rating_mpaa;
+  private $film_runtime;
   private $film_rating;
   private $film_duration;
   private $film_description;
+  private $film_actors;
 
 
   protected function getMultipleField($field_name){
@@ -65,6 +79,32 @@ class KP extends system {
     return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
   }
 
+  private function getAllActors($film_id){
+    $actors_page = str_replace("charset=windows-1251", "charset=utf-8", self::getContent('http://www.kinopoisk.ru/film/'.$film_id.'/cast/'));
+    $actors_doc = phpQuery::newDocument($actors_page, "text/html; charset=windows-1251");
+    $actors = $actors_doc->find('div.block_left > div');
+    $actors_list = array();
+    foreach($actors as $actor){
+      if(pq($actor)->attr('style') == 'padding-left: 20px; border-bottom: 2px solid #f60; font-size: 16px'){
+        $title = pq($actor)->text();
+      }
+      $actors_list[$title][] = array(
+              'rus_name' => pq($actor)->find('div.info div.name a')->text(),
+              'eng_name' => pq($actor)->find('div.info div.name span')->text(),
+              'pic' => 'http://st.kp.yandex.net'.pq($actor)->find('.actorInfo .photo img')->attr('title'),
+              'role' => pq($actor)->find('div.info div.role')->text(),
+      );
+    }
+
+    foreach($actors_list as $k=>$v){
+      foreach($v as $v2){
+        if(empty($v2['eng_name'])) continue;
+        $tmp[$k][] = $v2;
+      }
+    }
+    return $tmp;
+  }
+
   public function __construct($name) {
     $this->search_name = $name;
     $this->page = phpQuery::newDocument(self::getPage($this->search_name), "text/html; charset=windows-1251");
@@ -79,6 +119,7 @@ class KP extends system {
   }
 
   private function GetFilmInit(){
+    $this->film_id = $this->page_id[2];
     $this->film_title_rus = $this->page->find('#headerFilm h1.moviename-big')->text();
     $this->film_title_eng = $this->page->find('#headerFilm > span')->text();
     $this->film_year = str_replace(array("\n","\r"), '', $this->page->find('.info tr:contains(год) a')->text());
@@ -92,13 +133,39 @@ class KP extends system {
     $this->film_mounting = $this->getMultipleField('монтаж');
     $this->film_genre = $this->getMultipleField('жанр');
     $this->film_budget = $this->page->find('.info tr:contains(бюджет) a')->text();
+    $this->film_dues_usa = $this->page->find('.info tr:contains(сборы в США) a')->text();
+    $this->film_dues_world = $this->page->find('.info tr:contains(сборы в мире) a:first-child')->text();
+    $this->film_dues_russia = $this->page->find('.info tr:contains(сборы в России) a')->text();
+    $this->film_dvd_usa = $this->page->find('.info tr:contains(DVD в США) a')->text();
 
+    $audience = str_replace(', ...', '', $this->page->find('.info tr:contains(зрители) div div')->text());
+    $audience = preg_replace('![^0-9а-я,. ]!u', '', trim($audience));
+    $this->film_audience = explode(',', $audience);
     //todo Добавить остальные поля
+
+    $film_premiere_world = $this->getMultipleField('премьера (мир)');
+    $this->film_premiere_world = $film_premiere_world[0];
+
+    $film_premiere_russian = $this->getMultipleField('премьера (РФ)');
+    $this->film_premiere_russian = $film_premiere_russian[0];
+
+    $film_release_dvd = $this->getMultipleField('релиз на DVD');
+    $this->film_release_dvd = $film_release_dvd[0];
+
+    $film_release_blueray = $this->getMultipleField('релиз на Blu-Ray');
+    $this->film_release_blueray = $film_release_blueray[0];
+
+    $this->film_age = $this->page->find('.info tr:contains(возраст) span')->text();
+
+    $this->film_rating_mpaa = trim($this->page->find('.info tr:contains(рейтинг MPAA) span')->text());
+
+    $this->film_runtime = trim($this->page->find('.info tr:contains(время) td:last-child')->text());
 
     $this->film_description = $this->page->find('._reachbanner_ .brand_words')->text();
     $this->film_duration = $this->page->find('.info tr:contains(время) #runtime')->text();
     $this->film_rating['digital'] = $this->page->find('.rating_ball')->text();
     $this->film_rating['picture'] = "<img src=\"http://rating.kinopoisk.ru/{$this->page_id[2]}.gif\">";
+    $this->film_actors = $this->getAllActors($this->film_id);
   }
 
   private function GetArtistInit(){
@@ -187,6 +254,13 @@ class KP extends system {
   /**
    * @return mixed
    */
+  public function getArtistId() {
+    return $this->artist_id;
+  }
+
+  /**
+   * @return mixed
+   */
   public function getSearchName() {
     return $this->search_name;
   }
@@ -258,6 +332,14 @@ class KP extends system {
       return $this->img;
     }
   }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmId() {
+    return $this->film_id;
+  }
+
 
   /**
    * @return mixed
@@ -360,6 +442,13 @@ class KP extends system {
   /**
    * @return mixed
    */
+  public function getFilmDuesUsa() {
+    return $this->film_dues_usa;
+  }
+
+  /**
+   * @return mixed
+   */
   public function getFilmRating() {
     return $this->film_rating;
   }
@@ -376,6 +465,90 @@ class KP extends system {
    */
   public function getFilmDescription() {
     return $this->film_description;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmDuesWorld() {
+    return $this->film_dues_world;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmDuesRussia() {
+    return $this->film_dues_russia;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmAudience() {
+    return $this->film_audience;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmDvdUsa() {
+    return $this->film_dvd_usa;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmPremiereWorld() {
+    return $this->film_premiere_world;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmPremiereRussian() {
+    return $this->film_premiere_russian;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmReleaseBlueray() {
+    return $this->film_release_blueray;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmReleaseDvd() {
+    return $this->film_release_dvd;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmAge() {
+    return $this->film_age;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmRatingMpaa() {
+    return $this->film_rating_mpaa;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmRuntime() {
+    return $this->film_runtime;
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilmActors() {
+    return $this->film_actors;
   }
 
   public function test(){
