@@ -80,7 +80,9 @@ class KP extends system {
   }
 
   private function getAllActors($film_id){
+    //http://www.kinopoisk.ru/film/178707/cast/?token=8c2167646c305652e88ac59b9ebebc58&start_list=100
     $actors_page = str_replace("charset=windows-1251", "charset=utf-8", self::getContent('http://www.kinopoisk.ru/film/'.$film_id.'/cast/'));
+    preg_match('!var MaxNum \= ([0-9]+)\;!', $actors_page, $actors_cnt);
     $actors_doc = phpQuery::newDocument($actors_page, "text/html; charset=windows-1251");
     $actors = $actors_doc->find('div.block_left > div');
     $actors_list = array();
@@ -88,9 +90,13 @@ class KP extends system {
       if(pq($actor)->attr('style') == 'padding-left: 20px; border-bottom: 2px solid #f60; font-size: 16px'){
         $title = pq($actor)->text();
       }
+      $rus_name = pq($actor)->find('.actorInfo div.info div.name a')->text();
+      $eng_name = pq($actor)->find('.actorInfo div.info div.name span')->text();
+      $id = pq($actor)->find('div.info div.name a')->attr('href');
       $actors_list[$title][] = array(
-              'rus_name' => pq($actor)->find('div.info div.name a')->text(),
-              'eng_name' => pq($actor)->find('div.info div.name span')->text(),
+              'id' => preg_replace('!/name/([0-9]+)/!', "$1", $id),
+              'rus_name' => strlen($eng_name) < 5 ? '' : $rus_name,
+              'eng_name' => strlen($eng_name) < 3 ? $rus_name : $eng_name,
               'pic' => 'http://st.kp.yandex.net'.pq($actor)->find('.actorInfo .photo img')->attr('title'),
               'role' => pq($actor)->find('div.info div.role')->text(),
       );
