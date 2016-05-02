@@ -116,7 +116,8 @@ class KP extends system {
     $url = 'film/'.$this->page_id[2].'/cast/?token=8c2167646c305652e88ac59b9ebebc58&start_list=';
     $pages = array();
     for($i = 100; $i < $actors_cnt; $i = $i + 100){
-      $pages[] = phpQuery::newDocument('<div class="block_left">'.str_replace("charset=windows-1251", "charset=utf-8", $this->curl->request($url.$i)['content']).'</div>');
+      $page = $this->curl->request($url.$i, 'windows-1251', 'utf-8');
+      $pages[] = phpQuery::newDocument('<div class="block_left">'.str_replace("charset=windows-1251", "charset=utf-8", $page['content']).'</div>');
     }
     return $pages;
   }
