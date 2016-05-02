@@ -10,12 +10,14 @@
 $dir = dirname(__FILE__).'/../';
 require_once $dir.'class/system.php';
 require_once $dir.'lib/phpQuery/phpQuery.php';
+require_once $dir.'class/curl.php';
 
 class KP extends system {
-  private $page;
+  private $doc;
   private $page_id;
   private $search_name;
   private $url;
+  private $curl;
 
   private $img;
 
@@ -64,7 +66,7 @@ class KP extends system {
 
 
   protected function getMultipleField($field_name){
-    $fields = $this->page->find(".info tr:contains($field_name) a");
+    $fields = $this->doc->find(".info tr:contains($field_name) a");
     $field = array();
     foreach($fields as $part){
       $field[] = pq($part)->text();
@@ -87,15 +89,14 @@ class KP extends system {
       $this->page_id[1] = $type;
       $this->page_id[2] = $name;
       $this->url = 'http://www.kinopoisk.ru/' . $this->page_id[0];
-      $artist_page = system::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
-      return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
     } else {
-      $search_page = system::getContent('http://www.kinopoisk.ru/index.php?first=no&what=&kp_query=' . urlencode($name));
-      $this->url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href');
+      $search_page = $this->curl->request('index.php?first=no&what=&kp_query=' . urlencode($name));
+      $this->url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page['content'])->find('.most_wanted .name a')->attr('href');
       preg_match('!(name|film)/([0-9]+)!', $this->url, $this->page_id);
-      $artist_page = system::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
-      return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
     }
+
+    $artist_page = $this->curl->request($this->page_id[0], 'windows-1251', 'utf-8');
+    return str_replace("charset=windows-1251", "charset=utf-8", $artist_page['content']);
   }
 
   private function getMainPagesAllActors(){
@@ -160,9 +161,21 @@ class KP extends system {
   }
 
   public function __construct($name, $type = NULL) {
+    $this->curl = curl::app('http://www.kinopoisk.ru/');
+    $this->curl->setReferer('http://www.kinopoisk.ru/')
+      ->setUagent()
+      ->setHeader()
+      ->setHeaders(array(
+        'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language' => 'ru,en-us;q=0.7,en;q=0.3',
+        'Accept-Charset' => 'windows-1251,utf-8;q=0.7,*;q=0.7',
+        'Keep-Alive' => '300',
+        'Connection' => 'keep-alive',
+      ));
+
     $this->search_name = $name;
-    $this->page = phpQuery::newDocument(self::getPage($this->search_name, $type), "text/html; charset=windows-1251");
-    $this->img = $this->page->find('.film-img-box a img')->attr('src') ? base64_encode(file_get_contents($this->page->find('.film-img-box a img')->attr('src'))) : base64_encode(file_get_contents("http://st.kp.yandex.net/images/persons/photo_none.png"));
+    $this->doc = phpQuery::newDocument(self::getPage($this->search_name, $type), "text/html; charset=windows-1251");
+    $this->img = $this->doc->find('.film-img-box a img')->attr('src') ? base64_encode(file_get_contents($this->doc->find('.film-img-box a img')->attr('src'))) : base64_encode(file_get_contents("http://st.kp.yandex.net/images/persons/photo_none.png"));
     if ($this->page_id[1] == 'name') {
       $this->GetArtistInit();
     }elseif($this->page_id[1] == 'film'){
@@ -174,11 +187,11 @@ class KP extends system {
 
   private function GetFilmInit(){
     $this->film_id = $this->page_id[2];
-    $this->film_title_rus = $this->page->find('#headerFilm h1.moviename-big')->text();
-    $this->film_title_eng = $this->page->find('#headerFilm > span')->text();
-    $this->film_year = str_replace(array("\n","\r"), '', $this->page->find('.info tr:contains(год) a')->text());
+    $this->film_title_rus = $this->doc->find('#headerFilm h1.moviename-big')->text();
+    $this->film_title_eng = $this->doc->find('#headerFilm > span')->text();
+    $this->film_year = str_replace(array("\n","\r"), '', $this->doc->find('.info tr:contains(год) a')->text());
     $this->film_country = $this->getMultipleField('страна');
-    $this->film_tagline = $this->page->find('.info tr:contains(слоган) a')->text();
+    $this->film_tagline = $this->doc->find('.info tr:contains(слоган) a')->text();
     $this->film_director = $this->getMultipleField('режиссер');
     $this->film_screenplay = $this->getMultipleField('сценарий');
     $this->film_producer = $this->getMultipleField('продюсер');
@@ -186,13 +199,13 @@ class KP extends system {
     $this->film_painter = $this->getMultipleField('художник');
     $this->film_mounting = $this->getMultipleField('монтаж');
     $this->film_genre = $this->getMultipleField('жанр');
-    $this->film_budget = $this->page->find('.info tr:contains(бюджет) a')->text();
-    $this->film_dues_usa = $this->page->find('.info tr:contains(сборы в США) a')->text();
-    $this->film_dues_world = $this->page->find('.info tr:contains(сборы в мире) a:first-child')->text();
-    $this->film_dues_russia = $this->page->find('.info tr:contains(сборы в России) a')->text();
-    $this->film_dvd_usa = $this->page->find('.info tr:contains(DVD в США) a')->text();
+    $this->film_budget = $this->doc->find('.info tr:contains(бюджет) a')->text();
+    $this->film_dues_usa = $this->doc->find('.info tr:contains(сборы в США) a')->text();
+    $this->film_dues_world = $this->doc->find('.info tr:contains(сборы в мире) a:first-child')->text();
+    $this->film_dues_russia = $this->doc->find('.info tr:contains(сборы в России) a')->text();
+    $this->film_dvd_usa = $this->doc->find('.info tr:contains(DVD в США) a')->text();
 
-    $audience = str_replace(', ...', '', $this->page->find('.info tr:contains(зрители) div div')->text());
+    $audience = str_replace(', ...', '', $this->doc->find('.info tr:contains(зрители) div div')->text());
     $audience = preg_replace('![^0-9а-я,. ]!u', '', trim($audience));
     $this->film_audience = explode(',', $audience);
     //todo Добавить остальные поля
@@ -209,15 +222,15 @@ class KP extends system {
     $film_release_blueray = $this->getMultipleField('релиз на Blu-Ray');
     $this->film_release_blueray = $film_release_blueray[0];
 
-    $this->film_age = $this->page->find('.info tr:contains(возраст) span')->text();
+    $this->film_age = $this->doc->find('.info tr:contains(возраст) span')->text();
 
-    $this->film_rating_mpaa = trim($this->page->find('.info tr:contains(рейтинг MPAA) span')->text());
+    $this->film_rating_mpaa = trim($this->doc->find('.info tr:contains(рейтинг MPAA) span')->text());
 
-    $this->film_runtime = trim($this->page->find('.info tr:contains(время) td:last-child')->text());
+    $this->film_runtime = trim($this->doc->find('.info tr:contains(время) td:last-child')->text());
 
-    $this->film_description = $this->page->find('._reachbanner_ .brand_words')->text();
-    $this->film_duration = $this->page->find('.info tr:contains(время) #runtime')->text();
-    $this->film_rating['digital'] = $this->page->find('.rating_ball')->text();
+    $this->film_description = $this->doc->find('._reachbanner_ .brand_words')->text();
+    $this->film_duration = $this->doc->find('.info tr:contains(время) #runtime')->text();
+    $this->film_rating['digital'] = $this->doc->find('.rating_ball')->text();
     $this->film_rating['picture'] = "<img src=\"http://rating.kinopoisk.ru/{$this->page_id[2]}.gif\">";
     $this->film_actors = $this->getAllActors();
   }
@@ -227,19 +240,19 @@ class KP extends system {
     $this->artist_id = $this->page_id[2];
 
     //Имя артиста на русском
-    $this->artist_rus_name = $this->page->find('div#headerPeople h1')->text();
+    $this->artist_rus_name = $this->doc->find('div#headerPeople h1')->text();
 
     //Имя артиста на английском
-    $this->artist_eng_name = trim($this->page->find('div#headerPeople span')->text());
+    $this->artist_eng_name = trim($this->doc->find('div#headerPeople span')->text());
 
     //Карьера артиста
     $this->artist_career = $this->getMultipleField('карьера');
 
     //Рост артиста
-    $this->artist_height = $this->page->find('.info tr:contains(рост) span')->text();
+    $this->artist_height = $this->doc->find('.info tr:contains(рост) span')->text();
 
     //Дата рождения артиста
-    $birthday = $this->page->find('.info tr:contains(дата рождения)');
+    $birthday = $this->doc->find('.info tr:contains(дата рождения)');
     $timestamp = array();
     foreach(pq($birthday)->find('a') as $cnt=>$date) {
       if($cnt == 1 or $cnt == 0){
@@ -252,7 +265,7 @@ class KP extends system {
         $zodiac = pq($other)->text();
       }
     }
-    $year = $this->page->find('.info tr:contains(дата рождения) td:not([class="type"])')->text();
+    $year = $this->doc->find('.info tr:contains(дата рождения) td:not([class="type"])')->text();
     preg_match('![0-9]+ (года|лет)!', $year, $year);
     $day_birth = explode(' ', $timestamp[0]);
     $this->artist_birthday = array(
@@ -270,8 +283,8 @@ class KP extends system {
     $this->artist_genres = $this->getMultipleField('жанры');
 
     //Семейное положение
-    $fam_type = $this->page->find('.info tr:contains(супруг) td:first-child')->text();
-    $fams = $this->page->find('.info tr:contains(супруг) td:last-child a');
+    $fam_type = $this->doc->find('.info tr:contains(супруг) td:first-child')->text();
+    $fams = $this->doc->find('.info tr:contains(супруг) td:last-child a');
     $family = array();
     foreach($fams as $fam){
       $family[] = array(
@@ -283,7 +296,7 @@ class KP extends system {
     $this->artist_family = $family;
 
     //Список фильмов
-    $films = $this->page->find('.specializationBox');
+    $films = $this->doc->find('.specializationBox');
     $film_list = array();
     foreach($films as $film){
       $headersAmplua = pq($film)->find('.headersAmplua span.txtWorks')->text();

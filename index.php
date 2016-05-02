@@ -12,13 +12,17 @@ $kris = new KP('Сверхъестественное');
 //$kris = new KP(178707, 'film');
 
 
-//echo '<pre>';
-//print_r($kris->getUrl());
-//echo '</pre>';
+echo '<pre>';
+print_r($kris->getUrl());
+echo '</pre>';
 
-//echo '<pre>';
-//print_r($kris->getImg());
-//echo '</pre>';
+echo '<pre>';
+print_r($kris->getImg());
+echo '</pre>';
+
+echo '<pre>';
+print_r($kris->getFilmTitleRus());
+echo '</pre>';
 
 echo '<pre>';
 print_r($kris->getFilmActors());
