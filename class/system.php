@@ -13,12 +13,25 @@ abstract class system {
     return $fc.mb_substr($str, 1);
   }
 
+  protected function getFreeProxy(){
+    $proxy_list_json = file_get_contents('http://api.foxtools.ru/v2/Proxy?cp=UTF-8&lang=Auto&available=Yes&free=Yes&country=RU&formatting=1');
+    $proxy_list = json_decode($proxy_list_json)->response->items;
+    $rand = array_rand($proxy_list);
+    return $proxy_list[$rand];
+  }
+
   protected function getContent($link){
+//    $proxy = self::getFreeProxy();
+//    echo '<pre>';
+//    print_r($proxy->ip.':'.$proxy->port);
+//    echo '</pre>';
     $result = system::getUrlContent(
       array(
         'url' => $link,
         'type' => 'GET',
         'returntransfer' => 1,
+//        'proxy' => $proxy->ip.':'.$proxy->port,
+//        'proxy' => '176.14.204.185:80',
         'sendHeader' => array(
           'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language' => 'ru,en-us;q=0.7,en;q=0.3',
@@ -81,6 +94,10 @@ abstract class system {
 
       if (isset($param['referer'])) {
         curl_setopt($ch, CURLOPT_REFERER, $param['referer']);
+      }
+
+      if (isset($param['proxy'])) {
+        curl_setopt($ch, CURLOPT_PROXY, $param['proxy']);
       }
 
       if (isset($param['userpwd'])) {

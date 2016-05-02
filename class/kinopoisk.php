@@ -8,7 +8,7 @@
 
 //Подключаем необходимые файлы: библиотеку phpQuery и класс с системными методами
 $dir = dirname(__FILE__).'/../';
-require_once $dir.'class/system.class.php';
+require_once $dir.'class/system.php';
 require_once $dir.'lib/phpQuery/phpQuery.php';
 
 class KP extends system {
@@ -31,6 +31,7 @@ class KP extends system {
   private $artist_film_list;
 
   private $film_id;
+  protected $is_serial = FALSE;
   private $film_title_rus;
   private $film_title_eng;
   private $film_year;
@@ -71,31 +72,70 @@ class KP extends system {
     return $field;
   }
 
-  private function getPage($name) {
-    $search_page = self::getContent('http://www.kinopoisk.ru/index.php?first=no&what=&kp_query=' . urlencode($name));
-    $this->url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href');
-    preg_match('!(name|film)/([0-9]+)!', $this->url, $this->page_id);
-    $artist_page = self::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
-    return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
+	/**
+     * @param $name
+     * @param null $type
+     *    film, name
+     * @return mixed
+     */
+  private function getPage($name, $type = NULL) {
+    if (is_int($name)){
+      if($type != 'film' and $type != 'name'){
+        throw new Exception('Параметр type может быть только film или name');
+      }
+      $this->page_id[0] = $type.'/'.$name;
+      $this->page_id[1] = $type;
+      $this->page_id[2] = $name;
+      $this->url = 'http://www.kinopoisk.ru/' . $this->page_id[0];
+      $artist_page = system::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
+      return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
+    } else {
+      $search_page = system::getContent('http://www.kinopoisk.ru/index.php?first=no&what=&kp_query=' . urlencode($name));
+      $this->url = 'http://www.kinopoisk.ru' . phpQuery::newDocument($search_page)->find('.most_wanted .name a')->attr('href');
+      preg_match('!(name|film)/([0-9]+)!', $this->url, $this->page_id);
+      $artist_page = system::getContent('http://www.kinopoisk.ru/' . $this->page_id[0]);
+      return str_replace("charset=windows-1251", "charset=utf-8", $artist_page);
+    }
   }
 
-  private function getAllActors($film_id){
-    //http://www.kinopoisk.ru/film/178707/cast/?token=8c2167646c305652e88ac59b9ebebc58&start_list=100
-    $actors_page = str_replace("charset=windows-1251", "charset=utf-8", self::getContent('http://www.kinopoisk.ru/film/'.$film_id.'/cast/'));
-    preg_match('!var MaxNum \= ([0-9]+)\;!', $actors_page, $actors_cnt);
-    $actors_doc = phpQuery::newDocument($actors_page, "text/html; charset=windows-1251");
+  private function getMainPagesAllActors(){
+    $actors_page = str_replace("charset=windows-1251", "charset=utf-8", system::getContent('http://www.kinopoisk.ru/film/'.$this->page_id[2].'/cast/'));
+    $actors_page = phpQuery::newDocument($actors_page, "text/html; charset=windows-1251");
+    if(preg_match('!var MaxNum \= ([0-9]+)\;!', $actors_page, $actors_cnt)){
+      $this->is_serial = TRUE;
+      $pages = $this->getOtherActorPages($actors_cnt[1]);
+      array_unshift($pages, $actors_page);
+      return $pages;
+    }
+    return array($actors_page);
+  }
+
+  private function getOtherActorPages($actors_cnt){
+    $url = 'http://www.kinopoisk.ru/film/'.$this->page_id[2].'/cast/?token=8c2167646c305652e88ac59b9ebebc58&start_list=';
+    $pages = array();
+    for($i = 100; $i < $actors_cnt; $i = $i + 100){
+      $pages[] = phpQuery::newDocument('<div class="block_left">'.str_replace("charset=windows-1251", "charset=utf-8", system::getContent($url.$i)).'</div>');
+    }
+    return $pages;
+  }
+
+  private function Actors2Array($actors_doc){
+//    $actors_doc = phpQuery::newDocument($actors_page, "text/html; charset=windows-1251");
     $actors = $actors_doc->find('div.block_left > div');
     $actors_list = array();
     foreach($actors as $actor){
       if(pq($actor)->attr('style') == 'padding-left: 20px; border-bottom: 2px solid #f60; font-size: 16px'){
         $title = pq($actor)->text();
       }
+      if($this->is_serial){
+        $title = 'Актеры';
+      }
       $rus_name = pq($actor)->find('.actorInfo div.info div.name a')->text();
       $eng_name = pq($actor)->find('.actorInfo div.info div.name span')->text();
       $id = pq($actor)->find('div.info div.name a')->attr('href');
       $actors_list[$title][] = array(
               'id' => preg_replace('!/name/([0-9]+)/!', "$1", $id),
-              'rus_name' => strlen($eng_name) < 5 ? '' : $rus_name,
+              'rus_name' => strlen($eng_name) < 3 ? '' : $rus_name,
               'eng_name' => strlen($eng_name) < 3 ? $rus_name : $eng_name,
               'pic' => 'http://st.kp.yandex.net'.pq($actor)->find('.actorInfo .photo img')->attr('title'),
               'role' => pq($actor)->find('div.info div.role')->text(),
@@ -111,9 +151,17 @@ class KP extends system {
     return $tmp;
   }
 
-  public function __construct($name) {
+  private function getAllActors(){
+    $actors_list = array();
+    foreach($this->getMainPagesAllActors() as $actors){
+      $actors_list = array_merge_recursive($actors_list, $this->Actors2Array($actors));
+    }
+    return $actors_list;
+  }
+
+  public function __construct($name, $type = NULL) {
     $this->search_name = $name;
-    $this->page = phpQuery::newDocument(self::getPage($this->search_name), "text/html; charset=windows-1251");
+    $this->page = phpQuery::newDocument(self::getPage($this->search_name, $type), "text/html; charset=windows-1251");
     $this->img = $this->page->find('.film-img-box a img')->attr('src') ? base64_encode(file_get_contents($this->page->find('.film-img-box a img')->attr('src'))) : base64_encode(file_get_contents("http://st.kp.yandex.net/images/persons/photo_none.png"));
     if ($this->page_id[1] == 'name') {
       $this->GetArtistInit();
@@ -171,7 +219,7 @@ class KP extends system {
     $this->film_duration = $this->page->find('.info tr:contains(время) #runtime')->text();
     $this->film_rating['digital'] = $this->page->find('.rating_ball')->text();
     $this->film_rating['picture'] = "<img src=\"http://rating.kinopoisk.ru/{$this->page_id[2]}.gif\">";
-    $this->film_actors = $this->getAllActors($this->film_id);
+    $this->film_actors = $this->getAllActors();
   }
 
   private function GetArtistInit(){
